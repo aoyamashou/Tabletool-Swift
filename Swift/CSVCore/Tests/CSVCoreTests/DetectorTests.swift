@@ -125,4 +125,66 @@ final class DetectorTests: XCTestCase {
         let result = try CSVDetector().detect(data, encodings: [.utf8])
         XCTAssertEqual(result.candidates.first?.configuration.firstRowAsHeader, false)
     }
+
+    // MARK: Large inputs are scored on a sample, then verified once on the whole file.
+
+    private func largeCSV(delimiter: String = ",", mark: String = ".", rows: Int = 20_000) -> Data {
+        var text = ["id", "name", "note", "value"].joined(separator: delimiter) + "\n"
+        for i in 1...rows { text += "\(i)\(delimiter)name \(i)\(delimiter)\"quoted, text\(delimiter)\"\"x\"\"\"\(delimiter)\(i).5".replacingOccurrences(of: ".5", with: "\(mark)5") + "\n" }
+        return Data(text.utf8)
+    }
+
+    func testLargeInputUsesSamplingAndMatchesSmallInputResult() throws {
+        let large = largeCSV(delimiter: ";", mark: ",")
+        XCTAssertGreaterThan(large.count, CSVDetector.sampleThreshold)
+        let result = try CSVDetector().detect(large, encodings: CSVEncoding.allCases)
+        let best = try XCTUnwrap(result.candidates.first).configuration
+        XCTAssertEqual(best.encoding, .utf8)
+        XCTAssertEqual(best.delimiter, ";")
+        XCTAssertEqual(best.decimalMark, .comma)
+        XCTAssertTrue(best.firstRowAsHeader)
+        let cached = try XCTUnwrap(result.readResult(for: best))
+        XCTAssertEqual(cached.table.rows.count, 20_001)
+        XCTAssertEqual(cached.table, try CSVReader().read(large, configuration: best).table)
+    }
+
+    func testLargeInputScoresLikeExhaustiveDetection() throws {
+        let large = largeCSV()
+        let sampled = try CSVDetector().detect(large, encodings: [.utf8, .windows1252])
+        // Same leading records, but below the threshold: exhaustive scoring must agree on the winner.
+        let head = Data(large.prefix(upTo: large.index(large.startIndex, offsetBy: 2_000)))
+        let lineEnd = try XCTUnwrap(head.lastIndex(of: 0x0a))
+        let exhaustive = try CSVDetector().detect(Data(head.prefix(through: lineEnd)), encodings: [.utf8, .windows1252])
+        XCTAssertEqual(sampled.candidates.first?.configuration, exhaustive.candidates.first?.configuration)
+    }
+
+    func testLargeInputWithDamagedSuffixDropsEncodingThatCannotReadItAll() throws {
+        var data = largeCSV()
+        data.append(contentsOf: [0xff, 0xfe, 0xfd, 0x0a]) // invalid UTF-8 near the end, invisible to a prefix sample
+        let result = try CSVDetector().detect(data, encodings: [.utf8, .windows1252])
+        XCTAssertEqual(result.candidates.first?.configuration.encoding, .windows1252)
+        XCTAssertNotNil(result.validatedRead)
+    }
+
+    func testLargeInputWithMultilineQuotedFieldAtSampleCut() throws {
+        // A quoted field with embedded newlines straddling the first sample boundary must not reject the format.
+        var text = "id,note\n"
+        for i in 0..<12_000 { text += "\(i),\"line one\nline two\nline three \(i)\"\n" }
+        let data = Data(text.utf8)
+        XCTAssertGreaterThan(data.count, CSVDetector.sampleThreshold)
+        let result = try CSVDetector().detect(data, encodings: [.utf8])
+        let best = try XCTUnwrap(result.candidates.first).configuration
+        XCTAssertEqual(best.delimiter, ",")
+        XCTAssertEqual(best.quoting, .character("\"", escaping: .doubledQuote))
+        XCTAssertEqual(result.readResult(for: best)?.table.rows.count, 12_001)
+    }
+
+    func testLineAlignedPrefixHandlesWideEncodings() {
+        let utf16le = Data("a,b\nc,d\ne".utf16.flatMap { [UInt8($0 & 0xff), UInt8($0 >> 8)] })
+        let cut = CSVDetector.lineAlignedPrefix(utf16le, limit: utf16le.count - 2, encoding: .utf16LittleEndian)
+        XCTAssertEqual(cut?.count, 16) // "a,b\nc,d\n" = 8 units
+        let utf16be = Data("a,b\nc,d\ne".utf16.flatMap { [UInt8($0 >> 8), UInt8($0 & 0xff)] })
+        XCTAssertEqual(CSVDetector.lineAlignedPrefix(utf16be, limit: utf16be.count, encoding: .utf16BigEndian)?.count, 16)
+        XCTAssertEqual(CSVDetector.lineAlignedPrefix(Data("a\r\rb".utf8), limit: 5, encoding: .utf8)?.count, 3)
+    }
 }

@@ -73,7 +73,8 @@ final class CSVDocument: NSDocument {
     override func read(from data: Data, ofType typeName: String) throws {
         let detection = try CSVDetector().detect(data, encodings: CSVEncoding.allCases)
         guard let candidate = detection.candidates.first else { throw CSVError.invalidConfiguration("无法识别文件编码或CSV格式。") }
-        let result = try CSVReader().read(data, configuration: candidate.configuration)
+        let result = try detection.readResult(for: candidate.configuration)
+            ?? CSVReader().read(data, configuration: candidate.configuration)
         model = GridModel(table: result.table, configuration: result.configuration, serialization: result.serialization)
         sourceData = data
         hasEditedSource = false

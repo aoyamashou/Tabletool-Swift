@@ -2,6 +2,7 @@ import Foundation
 
 public struct CSVReader: CSVReading {
     public init() {}
+    static let unclosedQuoteReason = "Unclosed quoted field"
 
     public func read(_ data: Data, configuration: CSVConfiguration) throws -> CSVReadResult {
         try configuration.validate()
@@ -82,7 +83,7 @@ public struct CSVReader: CSVReading {
             case .quoted: break
             }
         }
-        if state == .quoted { throw fail("Unclosed quoted field") }
+        if state == .quoted { throw fail(Self.unclosedQuoteReason) }
         if !scalars.isEmpty && !endedWithRecordSeparator { finishField(); rows.append(row) }
         return CSVReadResult(table: CSVTable(rows: rows), configuration: configuration,
                              serialization: CSVSerialization(lineEnding: firstLineEnding ?? .lf,

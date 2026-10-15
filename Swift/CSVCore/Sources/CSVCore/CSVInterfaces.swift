@@ -41,8 +41,21 @@ public struct CSVDetectionResult: Equatable, Sendable {
     /// Best first. Empty means no supported interpretation, never silent fallback decoding.
     public let candidates: [CSVDetectionCandidate]
     public let isAmbiguous: Bool
-    public init(candidates: [CSVDetectionCandidate], isAmbiguous: Bool) {
-        self.candidates = candidates; self.isAmbiguous = isAmbiguous
+    /// Full-file read already performed while validating the best candidate (large inputs only).
+    /// Lets callers skip a second pass; use `readResult(for:)` to reuse it safely.
+    public let validatedRead: CSVReadResult?
+    public init(candidates: [CSVDetectionCandidate], isAmbiguous: Bool, validatedRead: CSVReadResult? = nil) {
+        self.candidates = candidates; self.isAmbiguous = isAmbiguous; self.validatedRead = validatedRead
+    }
+
+    /// The cached full read, re-labelled with `configuration`, when it parses identically
+    /// (only the header flag may differ: the table never depends on it).
+    public func readResult(for configuration: CSVConfiguration) -> CSVReadResult? {
+        guard let read = validatedRead else { return nil }
+        var cached = read.configuration
+        cached.firstRowAsHeader = configuration.firstRowAsHeader
+        guard cached == configuration else { return nil }
+        return CSVReadResult(table: read.table, configuration: configuration, serialization: read.serialization)
     }
 }
 
