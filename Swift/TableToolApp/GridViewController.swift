@@ -82,7 +82,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id.uuidString))
             column.title = document.model.title(column: index)
             column.headerCell.alignment = .center
-            column.width = 150; column.minWidth = 50
+            column.width = 100; column.minWidth = 50
             tableView.addTableColumn(column)
         }
         tableView.reloadData()
@@ -290,24 +290,17 @@ extension CSVEncoding {
     }
 }
 
-/// Bar glyphs like the original app: a stripe set where one stripe is the added (solid outline) or removed (dashed) one.
-private func glyph(vertical: Bool, marked: Int, dashed: Bool) -> NSImage {
-    let image = NSImage(size: NSSize(width: 24, height: 18), flipped: false) { _ in
-        NSColor.black.setFill(); NSColor.black.setStroke()
+/// Stripe glyphs like the original app: grey stripes with one coloured stripe (green = added, red = removed).
+private func glyph(vertical: Bool, marked: Int, color: NSColor) -> NSImage {
+    NSImage(size: NSSize(width: 24, height: 18), flipped: false) { _ in
         for i in 0..<5 {
             let rect = vertical ? NSRect(x: 1 + CGFloat(i) * 4.5, y: 1, width: 3, height: 16)
                                 : NSRect(x: 1, y: 1 + CGFloat(i) * 3.5, width: 22, height: 2.5)
-            if i == marked {
-                let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 0.5, yRadius: 0.5)
-                path.lineWidth = 1
-                if dashed { path.setLineDash([2, 1.5], count: 2, phase: 0) }
-                path.stroke()
-            } else { NSBezierPath(rect: rect).fill() }
+            (i == marked ? color : NSColor.secondaryLabelColor).setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 0.8, yRadius: 0.8).fill()
         }
         return true
     }
-    image.isTemplate = true
-    return image
 }
 
 extension GridViewController {
@@ -332,13 +325,14 @@ extension GridViewController {
             let item = NSToolbarItem(itemIdentifier: identifier)
             item.label = title; item.paletteLabel = title; item.toolTip = title
             item.image = image; item.target = target; item.action = action
+            item.isBordered = false
             return item
         }
         switch identifier {
-        case .addColumn: return group("添加列", [glyph(vertical: true, marked: 0, dashed: false), glyph(vertical: true, marked: 4, dashed: false)], ["在左侧添加列", "在右侧添加列"], #selector(addColumn(_:)))
-        case .deleteColumn: return button("删除列", glyph(vertical: true, marked: 2, dashed: true), #selector(deleteColumns(_:)), target: self)
-        case .addRow: return group("添加行", [glyph(vertical: false, marked: 4, dashed: false), glyph(vertical: false, marked: 0, dashed: false)], ["在上方添加行", "在下方添加行"], #selector(addRow(_:)))
-        case .deleteRow: return button("删除行", glyph(vertical: false, marked: 2, dashed: true), #selector(deleteRows(_:)), target: self)
+        case .addColumn: return group("添加列", [glyph(vertical: true, marked: 0, color: .systemGreen), glyph(vertical: true, marked: 4, color: .systemGreen)], ["在左侧添加列", "在右侧添加列"], #selector(addColumn(_:)))
+        case .deleteColumn: return button("删除列", glyph(vertical: true, marked: 2, color: .systemRed), #selector(deleteColumns(_:)), target: self)
+        case .addRow: return group("添加行", [glyph(vertical: false, marked: 4, color: .systemGreen), glyph(vertical: false, marked: 0, color: .systemGreen)], ["在上方添加行", "在下方添加行"], #selector(addRow(_:)))
+        case .deleteRow: return button("删除行", glyph(vertical: false, marked: 2, color: .systemRed), #selector(deleteRows(_:)), target: self)
         case .convert: return button("转换…", NSImage(named: NSImage.shareTemplateName), #selector(CSVDocument.convertFormat(_:)), target: nil)
         default: return nil
         }
