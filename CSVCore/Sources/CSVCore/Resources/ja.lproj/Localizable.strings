@@ -1,0 +1,19 @@
+/* CSVCore error messages */
+"CSV configuration is invalid: %@" = "CSV の設定が正しくありません: %@";
+"The file cannot be strictly decoded as %@." = "ファイルを %@ として厳密にデコードできません。";
+"Line %lld, column %lld: %@" = "%lld 行目、%lld 列目: %@";
+"Cannot encode losslessly as %@ (row: %@, column: %@)." = "%@ では欠落なくエンコードできません（行: %@、列: %@）。";
+"unknown" = "不明";
+"The displayed column order is invalid." = "表示中の列の順序が正しくありません。";
+"Encoding not supported yet: %@." = "このエンコーディングにはまだ対応していません: %@。";
+"Not implemented yet: %@." = "未実装です: %@。";
+"Delimiter must be one non-newline scalar" = "区切り文字は改行以外の 1 文字にしてください";
+"Quote, delimiter and escape conflict" = "引用符・区切り文字・エスケープ文字が競合しています";
+"BOM is only valid for Unicode encodings" = "BOM は Unicode エンコーディングでのみ使用できます";
+"A zero-field row has no lossless CSV representation" = "フィールドが 0 個の行は CSV として欠落なく表せません";
+"Field cannot be represented without quoting" = "引用符なしではこのフィールドを表せません";
+"Dangling escape" = "エスケープ文字の後に文字がありません";
+"Invalid escape" = "不正なエスケープです";
+"Quote inside an unquoted field" = "引用符のないフィールドの中に引用符があります";
+"Unexpected text after closing quote" = "閉じ引用符の後に余分な文字があります";
+"Unclosed quoted field" = "引用符が閉じられていません";

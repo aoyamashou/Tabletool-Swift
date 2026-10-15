@@ -1,26 +1,25 @@
-# CSVCore 公共契约 v1（M1.T1）
+# CSVCore public contract (v1)
 
-公共源码：`Sources/CSVCore/CSVTypes.swift`、`CSVInterfaces.swift`。T1冻结下列语义和签名，后续新增功能遵循该契约；确需破坏接口先记录迁移约定，不静默修改其他模块假设。
+Public sources: `Sources/CSVCore/CSVTypes.swift` and `CSVInterfaces.swift`. The semantics and signatures below are frozen; new features follow this contract. If an interface must break, record a migration note first rather than silently changing assumptions other modules rely on.
 
-## 值与序列
+## Values and serialization
 
-- `CSVCell.literal`是解码、去除CSV外围引用及转义后的单元格内容，包含原始前导零、空格、小数/指数写法、任意Unicode；不是原始文件字节或包含外围引号的token。默认写出保留此字面，不承诺逐字节保持引用风格。
-- `decimal: Decimal?`为独立、可选的准确数值解释。不能经过Double，不能把Decimal舍入后的结果误标为准确；超出Decimal精度/范围时置nil，但literal必须保留。改值创建新Cell，避免旧数值解释随literal修改而失配。T2负责准确识别及验证。
-- `CSVTable.rows`值类型，保留不齐列；空文件=零行；空白物理行=一行一个空Cell；尾分隔符=最后显式空Cell；尾换行不额外增加一行。缺失字段与显式空值在模型中不同，没有SQL null语义。最大行宽定义columnCount。
-- `firstRowAsHeader`只影响解释，首行仍保留在rows[0]，Reader不得移除；Writer不得重复添加。T4在UI适配层用稳定UUID标识行列，维护UUID至存储索引映射，重排/撤销一起更新；不以当前显示索引作为稳定身份。
+- `CSVCell.literal` is the cell content after decoding and after removing the surrounding CSV quotes and escapes. It keeps leading zeros, spaces, decimal/exponent notation and any Unicode exactly as written. It is neither the raw file bytes nor a token with its surrounding quotes. Writing preserves this literal by default; byte-identical quoting style is not promised.
+- `decimal: Decimal?` is an independent, optional, exact numeric interpretation. It must never go through `Double`, and a rounded `Decimal` must never be passed off as exact. When the value exceeds `Decimal`'s precision or range it is `nil`, but the literal is always kept. Changing a value creates a new cell, so an old numeric interpretation can never drift from an edited literal.
+- `CSVTable.rows` is a value type that keeps ragged rows. An empty file is zero rows; a blank physical line is one row with one empty cell; a trailing delimiter is a final explicit empty cell; a trailing newline does not add a row. A missing field and an explicit empty value are different in the model (there is no SQL-null semantics). The widest row defines `columnCount`.
+- `firstRowAsHeader` only affects interpretation. The first row stays in `rows[0]`; the reader never removes it and the writer never adds a second one. The UI adapter identifies rows and columns with stable UUIDs and keeps a UUID-to-storage-index map that is updated together with reordering and undo. The current display index is never used as a stable identity.
 
-## 配置与错误
+## Configuration and errors
 
-- 默认UTF-8、逗号、双引号双写转义、点小数、无表头。分隔符与引用均为单个非换行Unicode scalar（Tab允许），引用与分隔符不能相同；backslash模式不允许反斜杠作分隔符或引用。读写入口必须先validate。
-- `CSVEncoding`前18个case对应旧手选编码，额外gb18030仅为检测候选，明确区别gbk。T2编码映射、严格编解码/不支持错误及T3探测均不能静默用替代字符降级。T1声明类型不等于已验证19个编码可用。
-- `CSVSerialization`独立记录第一种观测到的行尾、末尾换行及BOM。混合行尾允许读，写时按选定行尾统一；引用内换行属于literal，不计作记录终止。零字段行（[]）无法无损表示，Writer明确失败；不齐列补空仍只作用于输出。空文件与单空Cell序列化会有歧义，Writer应对单空Cell引用（无引用模式无法表达则失败），不能默默丢行。UTF16/32无BOM时按显式端序解码；通用utf16/32默认采用大端、BOM优先。编码/BOM冲突明确报错。
-- `CSVSourceLocation`为1起始物理行及Unicode scalar列；换行计行、CRLF计一次，不是字节偏移，也不是数据表索引。编码失败的row/column若可定位同样从1起始；不可定位为nil。
-- `CSVError`区分配置、解码、CSV结构、输出编码、列排列、不支持编码及尚未实现。非法引用/孤立转义必须失败，无部分成功后覆盖原文件。
+- Defaults: UTF-8, comma, doubled-quote escaping, decimal point, no header. Delimiter and quote are each a single non-newline Unicode scalar (Tab is allowed) and must differ. Backslash escaping forbids a backslash as delimiter or quote. Every read/write entry point validates the configuration first.
+- The first 18 `CSVEncoding` cases map to the encodings the original app offered for manual selection. `gb18030` is an extra, detection-only candidate that is deliberately distinct from `gbk`. Encoding maps, strict encode/decode and "unsupported" errors, and detection must never silently fall back to replacement characters. Declaring a case is not a promise that the encoding has been verified.
+- `CSVSerialization` records, separately, the first line ending observed, the final line ending, and the BOM. Mixed line endings may be read and are normalised to the chosen line ending on write; a newline inside quotes is part of the literal and does not end a record. A zero-field row (`[]`) has no lossless representation and the writer fails explicitly; padding ragged rows with empty cells only ever happens on output. An empty file and a single empty cell serialize ambiguously, so the writer quotes a single empty cell (and fails if quote-less mode cannot express it) rather than dropping the row. UTF-16/32 without a BOM decode with the explicit byte order; the generic `utf16`/`utf32` default to big-endian, with a BOM taking precedence. A conflict between encoding and BOM is an explicit error.
+- `CSVSourceLocation` is a 1-based physical line and Unicode-scalar column. A line break counts a line and CRLF counts once. It is not a byte offset and not a table index. The row/column of an encoding failure is likewise 1-based when it can be located, otherwise `nil`.
+- `CSVError` distinguishes configuration, decoding, CSV structure, output encoding, column order, unsupported encoding and not-yet-implemented. Invalid quoting or a dangling escape must fail; a partial success must never overwrite the original file. Error messages are localized from the package's own string tables, with English as the key and the fallback.
 
-## 模块接入约定
+## Module contracts
 
-- T2提供`CSVReader: CSVReading`、`CSVWriter: CSVWriting`，均无文件系统副作用。Reader输入Data和显式配置，返回表、配置及序列信息。Writer在完整编码成功后返回Data，不改输入。
-- Writer的columnOrder为nil或0..<columnCount的完整排列，重复、缺失、越界须报invalidColumnOrder；按显示顺序输出。不齐行按最大列数补空仅发生在输出，不改模型。默认`literalPolicy=.preserve`；转换小数符号必须显式`.convertDecimalMark(from:)`，仅转换符合源小数语法的字面，不经Double或Decimal重构超长数字、不去前导零。目标小数符由configuration决定。
-- T3提供`CSVDetector: CSVDetecting`，实现可注入`any CSVReading`，供单测替身隔离T2依赖。输入Data和有序编码候选；输出按分数降序的配置候选、原因和歧义标识；分数只是排序，不是概率。空候选明确表示无解，不擅自选有损编码；错误与歧义由UI显示供手动校正。
-- T4维护输入原字节与已编辑状态，重新解释格式不得静默丢编辑；通过上述协议接业务。T5先拿到完整编码Data再原子保存；转换不得悄悄更改当前URL和输入配置。
-- T1的ContractTests只验证字面存储、配置冲突和外部消费公共协议可编译，协议替身不证明Reader/Writer/Detector已经实现；业务测试由T2/T3承接。
+- The reader/writer provide `CSVReader: CSVReading` and `CSVWriter: CSVWriting`, both free of file-system side effects. The reader takes `Data` and an explicit configuration and returns the table, the configuration and the serialization info. The writer returns `Data` only after the whole input encoded successfully and never changes its input.
+- The writer's `columnOrder` is either `nil` or a complete permutation of `0..<columnCount`; a repeated, missing or out-of-range index is `invalidColumnOrder`. Output follows the display order. Ragged rows are padded to the widest row on output only. The default `literalPolicy` is `.preserve`; converting the decimal mark must be requested explicitly with `.convertDecimalMark(from:)`, converts only literals that match the source decimal syntax, never rebuilds long numbers through `Double` or `Decimal`, and never strips leading zeros. The target decimal mark comes from the configuration.
+- The detector provides `CSVDetector: CSVDetecting`; its implementation takes an injectable `any CSVReading` so unit tests can isolate it from the reader. Input is `Data` plus an ordered list of candidate encodings; output is configuration candidates sorted by score, with reasons and an ambiguity flag. A score only orders candidates; it is not a probability. An empty result explicitly means "no solution" and never picks a lossy encoding on its own. Errors and ambiguity are shown by the UI for manual correction. Large inputs are scored on a line-aligned sample and the best candidates are then verified with a strict read of the whole file.
+- The document layer keeps the original input bytes and the edited state: re-interpreting the format must never silently discard edits. Saving first obtains the fully encoded `Data` and then writes atomically. Converting a copy never quietly changes the current URL or input configuration.

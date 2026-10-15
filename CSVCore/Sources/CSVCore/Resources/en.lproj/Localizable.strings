@@ -1,0 +1,19 @@
+/* CSVCore error messages */
+"CSV configuration is invalid: %@" = "CSV configuration is invalid: %@";
+"The file cannot be strictly decoded as %@." = "The file cannot be strictly decoded as %@.";
+"Line %lld, column %lld: %@" = "Line %lld, column %lld: %@";
+"Cannot encode losslessly as %@ (row: %@, column: %@)." = "Cannot encode losslessly as %@ (row: %@, column: %@).";
+"unknown" = "unknown";
+"The displayed column order is invalid." = "The displayed column order is invalid.";
+"Encoding not supported yet: %@." = "Encoding not supported yet: %@.";
+"Not implemented yet: %@." = "Not implemented yet: %@.";
+"Delimiter must be one non-newline scalar" = "Delimiter must be one non-newline scalar";
+"Quote, delimiter and escape conflict" = "Quote, delimiter and escape conflict";
+"BOM is only valid for Unicode encodings" = "BOM is only valid for Unicode encodings";
+"A zero-field row has no lossless CSV representation" = "A zero-field row has no lossless CSV representation";
+"Field cannot be represented without quoting" = "Field cannot be represented without quoting";
+"Dangling escape" = "Dangling escape";
+"Invalid escape" = "Invalid escape";
+"Quote inside an unquoted field" = "Quote inside an unquoted field";
+"Unexpected text after closing quote" = "Unexpected text after closing quote";
+"Unclosed quoted field" = "Unclosed quoted field";

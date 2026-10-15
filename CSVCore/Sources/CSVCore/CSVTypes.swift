@@ -100,17 +100,31 @@ public enum CSVError: Error, Equatable, Sendable {
 }
 
 extension CSVError: LocalizedError {
+    /// Looks `key` up in the package's own string tables (English is the key and the fallback).
+    static var resourceBundle: Bundle { Bundle.module }
+    static func localized(_ key: String) -> String {
+        resourceBundle.localizedString(forKey: key, value: key, table: nil)
+    }
+    private static func format(_ key: String, _ arguments: CVarArg...) -> String {
+        String(format: localized(key), arguments: arguments)
+    }
+
     public var errorDescription: String? {
         switch self {
-        case .invalidConfiguration(let reason): return "CSV配置无效：\(reason)"
-        case .decodingFailed(let encoding): return "无法按\(encoding.rawValue)严格解码文件。"
+        case .invalidConfiguration(let reason):
+            return Self.format("CSV configuration is invalid: %@", Self.localized(reason))
+        case .decodingFailed(let encoding):
+            return Self.format("The file cannot be strictly decoded as %@.", encoding.rawValue)
         case .malformedField(let location, let reason):
-            return "第\(location.line)行、第\(location.column)列：\(reason)"
+            return Self.format("Line %lld, column %lld: %@", location.line, location.column, Self.localized(reason))
         case .encodingFailed(let encoding, let row, let column):
-            return "无法用\(encoding.rawValue)无损编码（行：\(row.map(String.init) ?? "未知")，列：\(column.map(String.init) ?? "未知")）。"
-        case .invalidColumnOrder: return "显示列顺序无效。"
-        case .unsupportedEncoding(let encoding): return "暂不支持编码：\(encoding.rawValue)。"
-        case .notImplemented(let feature): return "尚未实现：\(feature)。"
+            let unknown = Self.localized("unknown")
+            return Self.format("Cannot encode losslessly as %@ (row: %@, column: %@).", encoding.rawValue,
+                               row.map(String.init) ?? unknown, column.map(String.init) ?? unknown)
+        case .invalidColumnOrder: return Self.localized("The displayed column order is invalid.")
+        case .unsupportedEncoding(let encoding):
+            return Self.format("Encoding not supported yet: %@.", encoding.rawValue)
+        case .notImplemented(let feature): return Self.format("Not implemented yet: %@.", feature)
         }
     }
 }

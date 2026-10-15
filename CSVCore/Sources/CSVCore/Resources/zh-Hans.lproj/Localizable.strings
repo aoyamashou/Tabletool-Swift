@@ -1,0 +1,19 @@
+/* CSVCore error messages */
+"CSV configuration is invalid: %@" = "CSV配置无效：%@";
+"The file cannot be strictly decoded as %@." = "无法按 %@ 严格解码文件。";
+"Line %lld, column %lld: %@" = "第 %lld 行、第 %lld 列：%@";
+"Cannot encode losslessly as %@ (row: %@, column: %@)." = "无法用 %@ 无损编码（行：%@，列：%@）。";
+"unknown" = "未知";
+"The displayed column order is invalid." = "显示列顺序无效。";
+"Encoding not supported yet: %@." = "暂不支持编码：%@。";
+"Not implemented yet: %@." = "尚未实现：%@。";
+"Delimiter must be one non-newline scalar" = "分隔符必须是一个非换行字符";
+"Quote, delimiter and escape conflict" = "引号、分隔符与转义字符冲突";
+"BOM is only valid for Unicode encodings" = "BOM 仅适用于 Unicode 编码";
+"A zero-field row has no lossless CSV representation" = "没有任何字段的行无法无损表示为 CSV";
+"Field cannot be represented without quoting" = "不加引号无法表示该字段";
+"Dangling escape" = "转义字符后缺少内容";
+"Invalid escape" = "无效的转义";
+"Quote inside an unquoted field" = "未加引号的字段中出现引号";
+"Unexpected text after closing quote" = "结束引号后出现多余内容";
+"Unclosed quoted field" = "引号未闭合";

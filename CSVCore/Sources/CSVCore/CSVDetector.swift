@@ -185,11 +185,11 @@ public struct CSVDetector: CSVDetecting {
             guard let full else { continue }
             winner = full
             kept.append(.init(configuration: candidate.configuration, score: candidate.score,
-                              reasons: candidate.reasons + ["已对整个文件严格读取验证。"]))
+                              reasons: candidate.reasons + ["Verified by a strict read of the whole file."]))
             // Lower-ranked candidates stay selectable; they are only scored on the sample.
             kept += ranked[index...].map {
                 .init(configuration: $0.configuration, score: $0.score,
-                      reasons: $0.reasons + ["仅按文件前部采样评分，尚未对整个文件验证。"])
+                      reasons: $0.reasons + ["Scored on a sample from the start of the file only; not verified on the whole file."])
             }
             break
         }
@@ -281,17 +281,17 @@ public struct CSVDetector: CSVDetecting {
         }
         let score = Double(rows.count + widthScore + (equalWidths ? 5 : 0) + min(numbers, 5))
         let reasons = [
-            "编码 \(encoding.rawValue) 严格读取成功；编码优先顺序由调用方提供。",
-            "前 \(rows.count) 条记录，首行 \(width) 列；\(equalWidths ? "列数一致" : "存在不齐列")。",
-            "符合\(configuration.decimalMark.rawValue)小数语法的单元格 \(numbers) 个。",
-            "表头仅按首行空值、数值和列数推断，可手动纠正。"
+            "Strict read as \(encoding.rawValue) succeeded; encoding priority is supplied by the caller.",
+            "First \(rows.count) records, \(width) columns in the first row; \(equalWidths ? "equal widths" : "ragged rows").",
+            "\(numbers) cells match decimal syntax with \"\(configuration.decimalMark.rawValue)\".",
+            "Header presence is inferred from empty values, numbers and widths in the first row; it can be corrected manually."
         ]
         // Header presence cannot be established from syntax. Keep both interpretations.
         var alternate = configuration
         alternate.firstRowAsHeader.toggle()
         return [.init(configuration: configuration, score: score, reasons: reasons),
                 .init(configuration: alternate, score: score - 0.25,
-                      reasons: reasons + ["备选表头解释；不会删除首行。 "])]
+                      reasons: reasons + ["Alternative header interpretation; the first row is never deleted."])]
     }
 
     private static func ranked(_ candidates: [CSVDetectionCandidate]) -> [CSVDetectionCandidate] {

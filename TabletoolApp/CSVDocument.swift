@@ -59,7 +59,7 @@ final class CSVDocument: NSDocument {
     }
     func reinterpret(_ config: CSVConfiguration) throws {
         guard commitPendingEditing() else { return }
-        guard SourceReinterpretationPolicy.allows(hasSource: sourceData != nil, hasEditedSource: hasEditedSource, isDocumentEdited: isDocumentEdited) else { throw CSVError.invalidConfiguration("输入原字节已有编辑；请保存并重新打开文件后更改输入格式。") }
+        guard SourceReinterpretationPolicy.allows(hasSource: sourceData != nil, hasEditedSource: hasEditedSource, isDocumentEdited: isDocumentEdited) else { throw CSVError.invalidConfiguration(tr("The input bytes have been edited. Save and reopen the file before changing the input format.")) }
         try config.validate()
         if let sourceData {
             let result = try CSVReader().read(sourceData, configuration: config)
@@ -67,19 +67,22 @@ final class CSVDocument: NSDocument {
             undoManager?.removeAllActions()
             gridController?.reload()
         } else {
-            applyChange("输入格式") { $0.configuration = config }
+            applyChange(tr("Input Format")) { $0.configuration = config }
         }
     }
     override func read(from data: Data, ofType typeName: String) throws {
         let detection = try CSVDetector().detect(data, encodings: CSVEncoding.allCases)
-        guard let candidate = detection.candidates.first else { throw CSVError.invalidConfiguration("无法识别文件编码或CSV格式。") }
+        guard let candidate = detection.candidates.first else { throw CSVError.invalidConfiguration(tr("Cannot recognize the file encoding or CSV format.")) }
         let result = try detection.readResult(for: candidate.configuration)
             ?? CSVReader().read(data, configuration: candidate.configuration)
         model = GridModel(table: result.table, configuration: result.configuration, serialization: result.serialization)
         sourceData = data
         hasEditedSource = false
         undoManager?.removeAllActions()
-        detectionNotice = detection.isAmbiguous ? "检测存在歧义，请确认输入格式；可在未编辑时更正。" : ""
+        // Only worth a warning when the encoding was a guess: non-ASCII bytes read as a legacy encoding.
+        let unicodeFamily: [CSVEncoding] = [.utf8, .utf16, .utf16BigEndian, .utf16LittleEndian, .utf32, .utf32BigEndian, .utf32LittleEndian]
+        let guessedLegacyEncoding = data.contains { $0 >= 0x80 } && !unicodeFamily.contains(result.configuration.encoding)
+        detectionNotice = detection.isAmbiguous && guessedLegacyEncoding ? tr("Check the encoding") : ""
         MainActor.assumeIsolated {
             gridController?.detectionNotice = detectionNotice
             gridController?.reload()
@@ -87,7 +90,7 @@ final class CSVDocument: NSDocument {
     }
     override func data(ofType typeName: String) throws -> Data {
         if let preparedWriteData { return preparedWriteData }
-        guard commitPendingEditing() else { throw CSVError.invalidConfiguration("请完成当前单元格编辑。") }
+        guard commitPendingEditing() else { throw CSVError.invalidConfiguration(tr("Please finish editing the current cell.")) }
         return try CSVWriter().write(model.outputTable, configuration: configuration,
                                      options: CSVWriteOptions(serialization: serialization, columnOrder: model.table.rows.isEmpty ? nil : model.storageColumnOrder))
     }
@@ -95,7 +98,7 @@ final class CSVDocument: NSDocument {
                        for saveOperation: NSDocument.SaveOperationType,
                        completionHandler: @escaping (Error?) -> Void) {
         guard commitPendingEditing() else {
-            completionHandler(CSVError.invalidConfiguration("请完成当前单元格编辑。")); return
+            completionHandler(CSVError.invalidConfiguration(tr("Please finish editing the current cell."))); return
         }
         super.save(to: url, ofType: typeName, for: saveOperation, completionHandler: completionHandler)
     }
@@ -105,7 +108,7 @@ final class CSVDocument: NSDocument {
 
     override func writeSafely(to url: URL, ofType typeName: String,
                               for saveOperation: NSDocument.SaveOperationType) throws {
-        guard Thread.isMainThread else { throw CSVError.invalidConfiguration("保存必须在文档主线程执行。") }
+        guard Thread.isMainThread else { throw CSVError.invalidConfiguration(tr("Saving must run on the document's main thread.")) }
         try MainActor.assumeIsolated {
             // Encode before NSDocument creates temporary files or moves the old version.
             let bytes = try data(ofType: typeName)
@@ -128,9 +131,9 @@ final class CSVDocument: NSDocument {
                          serialization targetSerialization: CSVSerialization? = nil) throws -> Bool {
         guard let destination else { return false }
         if let fileURL, destination.resolvingSymlinksInPath().standardizedFileURL == fileURL.resolvingSymlinksInPath().standardizedFileURL {
-            throw CSVError.invalidConfiguration("格式转换请选择其他文件，以保留当前文档。")
+            throw CSVError.invalidConfiguration(tr("Choose a different file for the conversion so the current document is kept."))
         }
-        guard commitPendingEditing() else { throw CSVError.invalidConfiguration("请完成当前单元格编辑。") }
+        guard commitPendingEditing() else { throw CSVError.invalidConfiguration(tr("Please finish editing the current cell.")) }
         let options = CSVWriteOptions(serialization: targetSerialization ?? serialization,
                                       columnOrder: model.table.rows.isEmpty ? nil : model.storageColumnOrder,
                                       literalPolicy: .convertDecimalMark(from: configuration.decimalMark))

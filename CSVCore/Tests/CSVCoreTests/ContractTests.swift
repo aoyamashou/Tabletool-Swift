@@ -1,5 +1,5 @@
 import XCTest
-import CSVCore
+@testable import CSVCore
 
 final class ContractTests: XCTestCase {
     func testLiteralIsIndependentOfNumericInterpretation() throws {
@@ -42,5 +42,38 @@ final class ContractTests: XCTestCase {
         let parsed = try reader.read(Data(), configuration: CSVConfiguration())
         XCTAssertTrue(try writer.write(parsed.table, configuration: parsed.configuration, options: CSVWriteOptions()).isEmpty)
         XCTAssertTrue(try detector.detect(Data(), encodings: [.utf8]).candidates.isEmpty)
+    }
+
+    // MARK: Localization
+
+    private func strings(_ language: String) throws -> [String: String] {
+        let path = try XCTUnwrap(CSVError.resourceBundle.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: language), language)
+        return try XCTUnwrap(NSDictionary(contentsOfFile: path) as? [String: String])
+    }
+
+    func testEveryLanguageTranslatesTheSameMessages() throws {
+        let english = try strings("en")
+        XCTAssertFalse(english.isEmpty)
+        for language in ["ja", "zh-Hans"] {
+            let table = try strings(language)
+            XCTAssertEqual(Set(table.keys), Set(english.keys), "\(language) keys differ from en")
+            // Every message needs a real translation, and keeps the same format placeholders.
+            for (key, value) in table {
+                XCTAssertFalse(value.isEmpty, "\(language): \(key)")
+                XCTAssertEqual(value.components(separatedBy: "%").count, key.components(separatedBy: "%").count,
+                               "\(language) placeholders differ: \(key)")
+            }
+        }
+    }
+
+    func testErrorMessagesAreTranslatedPerLanguage() throws {
+        // The test host's own language decides CSVError.errorDescription, so check each language's table directly.
+        let expected = ["en": "Unclosed quoted field", "ja": "引用符が閉じられていません", "zh-Hans": "引号未闭合"]
+        for (language, text) in expected {
+            let path = try XCTUnwrap(CSVError.resourceBundle.path(forResource: language, ofType: "lproj"))
+            let bundle = try XCTUnwrap(Bundle(path: path))
+            XCTAssertEqual(bundle.localizedString(forKey: "Unclosed quoted field", value: nil, table: nil), text)
+        }
+        XCTAssertNotNil(CSVError.invalidColumnOrder.errorDescription)
     }
 }

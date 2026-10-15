@@ -7,10 +7,9 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
     let tableView = NSTableView()
     private let encoding = NSPopUpButton()
     private let separator = NSSegmentedControl(labels: [",", ";", "⇥", "|"], trackingMode: .selectOne, target: nil, action: nil)
-    private let quote = NSSegmentedControl(labels: ["\"\"", "\\\"", "无"], trackingMode: .selectOne, target: nil, action: nil)
+    private let quote = NSSegmentedControl(labels: ["\"\"", "\\\"", tr("none")], trackingMode: .selectOne, target: nil, action: nil)
     private let decimal = NSSegmentedControl(labels: [".", ","], trackingMode: .selectOne, target: nil, action: nil)
-    private let header = NSButton(checkboxWithTitle: "表头", target: nil, action: nil)
-    private let status = NSTextField(labelWithString: "")
+    private let header = NSButton(checkboxWithTitle: tr("Header"), target: nil, action: nil)
     private static let separators: [Character] = [",", ";", "\t", "|"]
     var detectionNotice = ""
     private let rowPasteboardType = NSPasteboard.PasteboardType("cc.kneo.TabletoolSwift.rows")
@@ -25,7 +24,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         encoding.target = self; encoding.action = #selector(formatChanged(_:))
         header.target = self; header.action = #selector(formatChanged(_:))
         func caption(_ text: String) -> NSTextField { NSTextField(labelWithString: text) }
-        let format = NSStackView(views: [caption("编码"), encoding, caption("分隔符"), separator, caption("小数"), decimal, caption("引用"), quote, header])
+        let format = NSStackView(views: [caption(tr("Encoding")), encoding, caption(tr("Separator")), separator, caption(tr("Decimal")), decimal, caption(tr("Quote")), quote, header])
         format.orientation = .horizontal
         format.spacing = 8
         for control in [encoding, separator, decimal, quote] { format.setCustomSpacing(16, after: control) }
@@ -47,19 +46,14 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         tableView.setDraggingSourceOperationMask(.move, forLocal: true)
         tableView.setDraggingSourceOperationMask(.copy, forLocal: false)
         NotificationCenter.default.addObserver(self, selector: #selector(columnMoved(_:)), name: NSTableView.columnDidMoveNotification, object: tableView)
-        status.font = .systemFont(ofSize: 11); status.textColor = .secondaryLabelColor
-        status.lineBreakMode = .byTruncatingTail
-        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         let bottom = NSVisualEffectView()
         bottom.material = .windowBackground; bottom.blendingMode = .withinWindow
-        for item in [format, status] { item.translatesAutoresizingMaskIntoConstraints = false; bottom.addSubview(item) }
+        format.translatesAutoresizingMaskIntoConstraints = false; bottom.addSubview(format)
         NSLayoutConstraint.activate([
             format.leadingAnchor.constraint(equalTo: bottom.leadingAnchor, constant: 16),
             format.topAnchor.constraint(equalTo: bottom.topAnchor, constant: 10),
             format.bottomAnchor.constraint(equalTo: bottom.bottomAnchor, constant: -10),
-            status.leadingAnchor.constraint(greaterThanOrEqualTo: format.trailingAnchor, constant: 12),
-            status.trailingAnchor.constraint(equalTo: bottom.trailingAnchor, constant: -16),
-            status.centerYAnchor.constraint(equalTo: format.centerYAnchor)])
+            format.trailingAnchor.constraint(lessThanOrEqualTo: bottom.trailingAnchor, constant: -16)])
         let line = NSBox(); line.boxType = .separator
         let stack = NSStackView(views: [scroll, line, bottom])
         stack.orientation = .vertical; stack.alignment = .width; stack.spacing = 0
@@ -68,8 +62,14 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: view.leadingAnchor), stack.trailingAnchor.constraint(equalTo: view.trailingAnchor), stack.topAnchor.constraint(equalTo: view.topAnchor), stack.bottomAnchor.constraint(equalTo: view.bottomAnchor), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 220)])
         reload()
     }
+    /// Row/column counts (and the detection hint) live in the window subtitle, so they never get squeezed out.
+    private func updateSubtitle() {
+        view.window?.subtitle = tr("Rows: %lld · Columns: %lld", document.model.visibleRowCount, document.model.columnOrder.count)
+            + (detectionNotice.isEmpty ? "" : "  ⚠︎ " + detectionNotice)
+    }
     override func viewDidAppear() {
         super.viewDidAppear()
+        updateSubtitle()
         view.window?.makeFirstResponder(tableView)
     }
     func reload() {
@@ -97,7 +97,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         }
         decimal.selectedSegment = config.decimalMark == .point ? 0 : 1
         header.state = config.firstRowAsHeader ? .on : .off
-        status.stringValue = "\(document.model.visibleRowCount) 行 · \(document.model.columnOrder.count) 列  \(detectionNotice)"
+        updateSubtitle()
         isReloading = false
         updateActions()
     }
@@ -132,7 +132,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         guard let field = obj.object as? NSTextField else { return }
         guard let parts = field.identifier?.rawValue.split(separator: ":"), parts.count == 2,
               let row = Int(parts[0]), let column = Int(parts[1]) else { return }
-        document.applyChange("编辑单元格") { $0.edit(row: row, column: column, literal: field.stringValue) }
+        document.applyChange(tr("Edit Cell")) { $0.edit(row: row, column: column, literal: field.stringValue) }
     }
     @objc private func formatChanged(_ sender: Any?) {
         guard !isReloading else { return }
@@ -157,38 +157,38 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
     @objc func addRow(_ sender: NSToolbarItemGroup) {
         let rows = tableView.selectedRowIndexes
         let index = sender.selectedIndex == 0 ? (rows.first ?? 0) : (rows.last.map { $0 + 1 } ?? document.model.visibleRowCount)
-        change(sender.selectedIndex == 0 ? "在上方添加行" : "在下方添加行") { $0.insertRows(at: index) }
+        change(tr(sender.selectedIndex == 0 ? "Add Row Above" : "Add Row Below")) { $0.insertRows(at: index) }
     }
     @objc func addColumn(_ sender: NSToolbarItemGroup) {
         let columns = tableView.selectedColumnIndexes
         let index = sender.selectedIndex == 0 ? (columns.first ?? 0) : (columns.last.map { $0 + 1 } ?? document.model.columnOrder.count)
-        change(sender.selectedIndex == 0 ? "在左侧添加列" : "在右侧添加列") { $0.insertColumn(at: index) }
+        change(tr(sender.selectedIndex == 0 ? "Add Column Left" : "Add Column Right")) { $0.insertColumn(at: index) }
     }
     @objc func insertRow(_ sender: Any?) {
         let index = tableView.selectedRowIndexes.first ?? document.model.visibleRowCount
-        change("插入行") { $0.insertRows(at: index) }
+        change(tr("Insert Row")) { $0.insertRows(at: index) }
     }
     @objc func deleteRows(_ sender: Any?) {
         let indexes = tableView.selectedRowIndexes
         guard !indexes.isEmpty else { return }
-        change("删除行") { $0.deleteRows(indexes) }
+        change(tr("Delete Rows")) { $0.deleteRows(indexes) }
     }
     @objc func insertColumn(_ sender: Any?) {
         let index = tableView.selectedColumnIndexes.first ?? document.model.columnOrder.count
-        change("插入列") { $0.insertColumn(at: index) }
+        change(tr("Insert Column")) { $0.insertColumn(at: index) }
     }
     @objc func deleteColumns(_ sender: Any?) {
         let indexes = tableView.selectedColumnIndexes
         guard !indexes.isEmpty else { return }
-        change("删除列") { $0.deleteColumns(indexes) }
+        change(tr("Delete Columns")) { $0.deleteColumns(indexes) }
     }
     @objc func editHeader(_ sender: Any?) {
         guard document.configuration.firstRowAsHeader, let c = tableView.selectedColumnIndexes.first, !document.model.table.rows.isEmpty else { return }
-        let alert = NSAlert(); alert.messageText = "编辑表头"
+        let alert = NSAlert(); alert.messageText = tr("Edit Header")
         let field = NSTextField(string: document.model.title(column: c)); field.frame.size = NSSize(width: 300, height: 24)
-        alert.accessoryView = field; alert.addButton(withTitle: "确定"); alert.addButton(withTitle: "取消")
+        alert.accessoryView = field; alert.addButton(withTitle: tr("OK")); alert.addButton(withTitle: tr("Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        change("编辑表头") { model in
+        change(tr("Edit Header")) { model in
             let index = model.storageColumnOrder[c]
             while model.table.rows[0].count <= index { model.table.rows[0].append(CSVCell(literal: "")) }
             model.table.rows[0][index] = CSVCell(literal: field.stringValue)
@@ -210,7 +210,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
             let result = try CSVReader().read(Data(text.utf8), configuration: CSVConfiguration(delimiter: "\t"))
             let values = result.table.rows.map { $0.map(\.literal) }
             let index = tableView.selectedRowIndexes.first ?? document.model.visibleRowCount
-            change("粘贴行") { $0.insertRows(at: index, values: values) }
+            change(tr("Paste Rows")) { $0.insertRows(at: index, values: values) }
         } catch { show(error) }
     }
     private func exchangeText(rows: IndexSet, columns: IndexSet = []) throws -> String {
@@ -220,7 +220,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
     }
     @objc private func columnMoved(_ note: Notification) {
         guard !isReloading, let from = note.userInfo?["NSOldColumn"] as? Int, let to = note.userInfo?["NSNewColumn"] as? Int else { return }
-        change("移动列") { $0.moveColumn(from: from, to: to) }
+        change(tr("Move Column")) { $0.moveColumn(from: from, to: to) }
     }
     func tableView(_ tableView: NSTableView, writeRowsWith rowIndexes: IndexSet, to pasteboard: NSPasteboard) -> Bool {
         guard document.commitPendingEditing() else { return false }
@@ -241,7 +241,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
     func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation: NSTableView.DropOperation) -> Bool {
         guard let value = info.draggingPasteboard.propertyList(forType: rowPasteboardType) as? [String: Any],
               value["document"] as? String == dragIdentity, let rows = value["rows"] as? [Int] else { return false }
-        change("移动行") { $0.moveRows(IndexSet(rows), to: row) }
+        change(tr("Move Row")) { $0.moveRows(IndexSet(rows), to: row) }
         return true
     }
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
@@ -265,7 +265,8 @@ extension NSToolbarItem.Identifier {
 }
 
 extension CSVEncoding {
-    var displayName: String {
+    var displayName: String { Bundle.main.localizedString(forKey: englishName, value: englishName, table: nil) }
+    private var englishName: String {
         switch self {
         case .utf8: "Unicode (UTF-8)"
         case .macRoman: "Western (Mac OS Roman)"
@@ -329,11 +330,11 @@ extension GridViewController {
             return item
         }
         switch identifier {
-        case .addColumn: return group("添加列", [glyph(vertical: true, marked: 0, color: .systemGreen), glyph(vertical: true, marked: 4, color: .systemGreen)], ["在左侧添加列", "在右侧添加列"], #selector(addColumn(_:)))
-        case .deleteColumn: return button("删除列", glyph(vertical: true, marked: 2, color: .systemRed), #selector(deleteColumns(_:)), target: self)
-        case .addRow: return group("添加行", [glyph(vertical: false, marked: 4, color: .systemGreen), glyph(vertical: false, marked: 0, color: .systemGreen)], ["在上方添加行", "在下方添加行"], #selector(addRow(_:)))
-        case .deleteRow: return button("删除行", glyph(vertical: false, marked: 2, color: .systemRed), #selector(deleteRows(_:)), target: self)
-        case .convert: return button("转换…", NSImage(named: NSImage.shareTemplateName), #selector(CSVDocument.convertFormat(_:)), target: nil)
+        case .addColumn: return group(tr("Add Column"), [glyph(vertical: true, marked: 0, color: .systemGreen), glyph(vertical: true, marked: 4, color: .systemGreen)], [tr("Add Column Left"), tr("Add Column Right")], #selector(addColumn(_:)))
+        case .deleteColumn: return button(tr("Delete Column"), glyph(vertical: true, marked: 2, color: .systemRed), #selector(deleteColumns(_:)), target: self)
+        case .addRow: return group(tr("Add Row"), [glyph(vertical: false, marked: 4, color: .systemGreen), glyph(vertical: false, marked: 0, color: .systemGreen)], [tr("Add Row Above"), tr("Add Row Below")], #selector(addRow(_:)))
+        case .deleteRow: return button(tr("Delete Row"), glyph(vertical: false, marked: 2, color: .systemRed), #selector(deleteRows(_:)), target: self)
+        case .convert: return button(tr("Convert…"), NSImage(named: NSImage.shareTemplateName), #selector(CSVDocument.convertFormat(_:)), target: nil)
         default: return nil
         }
     }

@@ -6,32 +6,32 @@ extension CSVDocument {
     @objc func convertFormat(_ sender: Any?) {
         guard commitPendingEditing() else { return }
         let encoding = NSPopUpButton()
-        encoding.addItems(withTitles: CSVEncoding.allCases.map(\.rawValue))
-        encoding.selectItem(withTitle: configuration.encoding.rawValue)
+        encoding.addItems(withTitles: CSVEncoding.allCases.map(\.displayName))
+        encoding.selectItem(at: CSVEncoding.allCases.firstIndex(of: configuration.encoding) ?? 0)
         let delimiter = NSTextField(string: configuration.delimiter == "\t" ? "\\t" : String(configuration.delimiter))
         let quote = NSPopUpButton()
-        quote.addItems(withTitles: ["双引号", "单引号", "无引用", "双引号 / 反斜杠"])
+        quote.addItems(withTitles: [tr("Double quote"), tr("Single quote"), tr("No quoting"), tr("Double quote / backslash")])
         switch configuration.quoting {
         case .none: quote.selectItem(at: 2)
         case let .character(c, escaping): quote.selectItem(at: escaping == .backslash ? 3 : c == "'" ? 1 : 0)
         }
-        let decimal = NSPopUpButton(); decimal.addItems(withTitles: ["小数点 .", "小数逗号 ,"])
+        let decimal = NSPopUpButton(); decimal.addItems(withTitles: [tr("Decimal point ."), tr("Decimal comma ,")])
         decimal.selectItem(at: configuration.decimalMark == .point ? 0 : 1)
         let newline = NSPopUpButton(); newline.addItems(withTitles: ["LF", "CRLF", "CR"])
         newline.selectItem(at: serialization.lineEnding == .lf ? 0 : serialization.lineEnding == .crlf ? 1 : 2)
-        let controls = NSStackView(views: [NSTextField(labelWithString: "编码"), encoding,
-                                          NSTextField(labelWithString: "分隔符（Tab填\\t）"), delimiter,
+        let controls = NSStackView(views: [NSTextField(labelWithString: tr("Encoding")), encoding,
+                                          NSTextField(labelWithString: tr("Delimiter (enter \\t for Tab)")), delimiter,
                                           quote, decimal, newline])
         controls.orientation = .vertical; controls.alignment = .leading; controls.spacing = 6
         controls.frame = NSRect(x: 0, y: 0, width: 350, height: 230)
-        let alert = NSAlert(); alert.messageText = "转换格式并导出副本"
-        alert.informativeText = "当前文档与输入格式会保留。小数转换仅处理符合源数字语法的单元格。"
+        let alert = NSAlert(); alert.messageText = tr("Convert Format and Export Copy")
+        alert.informativeText = tr("The current document and its input format are kept. Decimal conversion only affects cells that match the source number syntax.")
         alert.accessoryView = controls
-        alert.addButton(withTitle: "选择导出位置…"); alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: tr("Choose Export Location…")); alert.addButton(withTitle: tr("Cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         let delimiterText = delimiter.stringValue == "\\t" ? "\t" : delimiter.stringValue
         guard delimiterText.unicodeScalars.count == 1, let delimiterCharacter = delimiterText.first else {
-            NSAlert(error: CSVError.invalidConfiguration("分隔符必须是一个字符。")).runModal(); return
+            NSAlert(error: CSVError.invalidConfiguration(tr("The delimiter must be a single character."))).runModal(); return
         }
         var target = configuration
         target.encoding = CSVEncoding.allCases[encoding.indexOfSelectedItem]
@@ -50,9 +50,9 @@ extension CSVDocument {
         }
         do { try target.validate() } catch { NSAlert(error: error).runModal(); return }
         let panel = NSSavePanel()
-        panel.title = "导出转换后的副本"
+        panel.title = tr("Export Converted Copy")
         panel.allowedContentTypes = [.commaSeparatedText]
-        panel.nameFieldStringValue = "\(fileURL?.deletingPathExtension().lastPathComponent ?? "未命名")-转换.csv"
+        panel.nameFieldStringValue = tr("%@-converted.csv", fileURL?.deletingPathExtension().lastPathComponent ?? tr("Untitled"))
         guard panel.runModal() == .OK else { return }
         do { try exportConverted(to: panel.url, configuration: target, serialization: output) }
         catch { NSAlert(error: error).runModal() }
