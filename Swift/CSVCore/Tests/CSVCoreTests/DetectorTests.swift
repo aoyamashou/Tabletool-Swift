@@ -234,4 +234,15 @@ final class DetectorTests: XCTestCase {
             XCTAssertEqual(try detectDecoded(sample, encoded: .utf8).0, .utf8)
         }
     }
+    func testKanjiOnlyShiftJISIsNotMistakenForGBK() throws {
+        // No kana to give it away: the same bytes are also valid GBK, only rare GBK/3 hanzi.
+        let kanjiOnly = "番号,氏名,住所,会社\n1,田中太郎,東京都千代田区,東京商事\n2,佐藤花子,大阪府大阪市,東京商事\n3,鈴木一郎,京都府京都市,大阪商事\n"
+        let (encoding, text) = try detectDecoded(kanjiOnly, encoded: .shiftJIS)
+        XCTAssertEqual(encoding, .shiftJIS); XCTAssertEqual(text, kanjiOnly)
+    }
+    func testGBKChineseWithoutKanaIsNotMistakenForShiftJIS() throws {
+        let simplified = "编号,姓名,地址,公司\n1,张伟,北京市海淀区,华为公司\n2,王芳,上海市浦东新区,腾讯公司\n3,李娜,广州市天河区,阿里公司\n"
+        let (encoding, text) = try detectDecoded(simplified, encoded: .gbk)
+        XCTAssertTrue([.gbk, .gb18030].contains(encoding)); XCTAssertEqual(text, simplified)
+    }
 }

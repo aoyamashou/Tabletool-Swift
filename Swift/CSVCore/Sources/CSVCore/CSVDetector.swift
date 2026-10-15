@@ -35,7 +35,7 @@ public struct CSVDetector: CSVDetecting {
             guard let sample, let (text, _) = try? CSVCodec.decode(sample, encoding: encoding) else {
                 return (encoding, -.infinity) // cannot decode: stays last, fails later with a precise error
             }
-            return (encoding, plausibility(of: text, encoding: encoding))
+            return (encoding, plausibility(of: text, encoding: encoding, bytes: sample))
         }
         // Stable: equal scores keep the caller's order.
         return scored.enumerated().sorted {
@@ -43,8 +43,24 @@ public struct CSVDetector: CSVDetecting {
         }.map(\.element.encoding)
     }
 
+    /// Everyday Chinese text lives in GB 2312: lead 0xB0–0xF7 / trail 0xA1–0xFE. Pairs with a lead below 0xA1 or
+    /// a trail below 0xA1 (GBK/3–5) are rare there, but are what Shift-JIS kanji turn into when read as GBK.
+    private static func rareGBKPairs(_ bytes: Data) -> Double {
+        var rare = 0.0
+        var i = bytes.startIndex
+        while i < bytes.endIndex {
+            let lead = bytes[i]
+            guard lead >= 0x81, lead != 0xff, i + 1 < bytes.endIndex else { i += 1; continue }
+            let trail = bytes[i + 1]
+            if (0x30...0x39).contains(trail) { i += 4; continue } // GB18030 four-byte sequence
+            if lead <= 0xa0 || trail < 0xa1 { rare += 1.5 }
+            i += 2
+        }
+        return rare
+    }
+
     /// Higher is more text-like. Only differences between encodings of the same bytes matter.
-    static func plausibility(of text: String, encoding: CSVEncoding) -> Double {
+    static func plausibility(of text: String, encoding: CSVEncoding, bytes: Data? = nil) -> Double {
         let japanese: Bool
         switch encoding {
         case .shiftJIS, .japaneseEUC, .iso2022JP, .utf8, .utf16, .utf16BigEndian, .utf16LittleEndian,
@@ -105,6 +121,7 @@ public struct CSVDetector: CSVDetecting {
                 }
             }
         }
+        if let bytes, encoding == .gbk || encoding == .gb18030 { total -= rareGBKPairs(bytes) }
         if encoding == .utf8 && sawNonASCII { total += 10 } // random bytes are almost never valid UTF-8
         return total
     }
