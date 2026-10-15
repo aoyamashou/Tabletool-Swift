@@ -1,3 +1,10 @@
 xcshareddata
 xcuserdata
 .DS_Store
+
+# Swift package state and local verification artifacts
+.build/
+.swiftpm/
+tasks/*-build/
+logs/preflight-probe.*/
+logs/preflight-*.log

@@ -1,0 +1,8 @@
+Swift CSVCore实际读取及内存写出重读通过，rows=3，columns=3
+preflight_exit=0
+negative_preflight=pass
+local_adhoc_signature=pass
+app_arm64=pass
+legacy_unchanged=pass
+final_verification=pass
+completion_exit=0
