@@ -1,45 +1,41 @@
-<img style='margin: 0 auto' src="https://github.com/jakob/TableTool/raw/master/Table%20Tool/Images.xcassets/AppIcon.appiconset/icon_128x128@2x.png" width=128 height=128>
+<img src="Artwork/icon.png" width="96" height="96" alt="Table Tool">
 
-# Table Tool 
+# Table Tool 2026
 
-A simple CSV editor for OS X.
+用 Swift / AppKit 重写的 [Table Tool](https://github.com/jakob/TableTool)：一个简单、原生的 macOS CSV 编辑器，面向 Apple Silicon。
 
-Download [on the Mac App Store](https://itunes.apple.com/app/table-tool/id1122008420?mt=12).
+![Table Tool 2026](Artwork/Screenshots/TableTool2026.png)
 
-<img style='margin: 0 auto' src="https://github.com/jakob/TableTool/raw/master/Artwork/Screenshots/2016-06-08 Tabletool 1.1 Customers.jpg" width=800 height=500>
+## 特点
 
-The CSV format is a common used file format to store and exchange tabular data. 
-Almost all spreadsheet and database apps (e.g. Excel and Numbers) support it.
-Unfortunately, not all CSV files are made equal.
-CSV files use different record delimiters (comma or semicolon), character encodings, decimal separators or quoting styles.
+- **自动识别格式**：编码（UTF-8/16/32、Shift-JIS、EUC-JP、ISO-2022-JP、GBK、GB18030、Windows-125x、MacRoman 等）、分隔符、引号、小数点、是否有表头；有歧义时可手动纠正。
+- **不改你的数据**：保留前导零、超长数字和 Unicode 单元格原文，数字解释与存储分离。
+- **编辑**：单元格编辑、在上/下插入行、在左/右插入列、删除、列拖动重排、撤销重做、复制粘贴（含引用 TSV）。
+- **转换**：另存为，或转换编码、分隔符、引号、小数点、行尾并导出副本。
+- **够快**：5MB 的 CSV 约 1 秒打开。
 
-TableTool handles these issues automatically.
-It detects the specification of a CSV file for you and displays its contents in a table view.
-Using TableTool is the easy way to create, edit and convert CSV files.
+## 构建与运行
 
-## Usage
+需要 macOS 13+、Xcode，无第三方依赖。
 
-**Open Files:**
-When opening a CSV file, Table Tool detects the format specifications 
-(record delimiter, character encoding, etc.) automatically.
-You can also set the specifications manually.
+```bash
+open TableToolSwift.xcodeproj      # 在 Xcode 中运行
+# 或命令行构建
+xcodebuild -project TableToolSwift.xcodeproj -scheme TableToolSwift -configuration Release build
+```
 
-**Edit Files:**
-Edit the contents of the cells, rows and columns of the document easily in a grid based user interface.
+## 测试
 
-**Convert Files:**
-Convert an existing CSV file to a different format.
+```bash
+cd CSVCore && swift test
+```
 
-## Credits
+核心库的接口约定见 [CSVCore/CONTRACT.md](CSVCore/CONTRACT.md)。
 
-Table Tool was made by [Sandro Peham](https://github.com/SandroPeham), 
-[Andreas Aigner](https://github.com/aigi) and 
-[Jakob Egger](https://github.com/jakob).
+## 范围
 
-## Mission / Project Scope / Contributing
+只做 CSV 编辑：不提供公式、样式、排序、联网或数据库。
 
-TableTool seeks to be a great and simple CSV file editor and nothing more. Any formatting options or features like formulas will be out of scope for the project. Please post an issue if something is broken ([bug](https://github.com/jakob/TableTool/labels/bug)) or you believe something is missing ([feature request](https://github.com/jakob/TableTool/labels/enhancement)) and please be prepared to [provide screenshots](https://github.com/jakob/TableTool/labels/need%20mockup). We will endeavor to quickly decide if the thing is actually broken or if the new feature belongs in the project ([help-wanted](https://github.com/jakob/TableTool/labels/help%20wanted) label). Once the help-wanted label is set, please help to work on implementation for that feature and we are happy to accept a pull request for it. We currently have more side projects than we can handle, so well documented issues and great pull requests will help move this project forward. We are happy to give commit access to consistent contributors.
+## 致谢与许可
 
-## Licence
-
-Table Tool is distributed under the [MIT Licence](https://github.com/jakob/TableTool/blob/master/LICENSE).
+Table Tool 由 [Sandro Peham](https://github.com/SandroPeham)、[Andreas Aigner](https://github.com/aigi) 和 [Jakob Egger](https://github.com/jakob) 创作；本仓库是其 Swift 重写版本，沿用 [MIT 许可](LICENSE)。

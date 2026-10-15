@@ -1,9 +1,0 @@
-check: git_identity pass Git姓名与邮箱均已配置（不输出个人信息）
-check: native_host pass 原生arm64 macOS 27.0.1
-check: build_toolchain pass Xcode 27.0; Build version 27A266a
-info: full_xcode available; build_route=xcode
-check: config_match fail Print: Entry, ":CFBundleDocumentTypes:0:NSDocumentClass", Does Not Exist
-check: service_alive pass 不适用：本地NSApplication/NSDocument应用无后台服务；脱离终端启动及窗口操作按M2独立GUI验收
-check: login_ok pass 不适用：本地应用无账号或登录；不代表GUI验收
-check: data_readable pass Swift CSVCore实际读取及内存写出重读通过，rows=3，columns=3；磁盘保存失败保护及完整回归见tasks/M1.T5-build/
-log: logs/preflight-20261015-173209-57417.log

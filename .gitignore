@@ -1,10 +1,12 @@
-xcshareddata
-xcuserdata
+# macOS
 .DS_Store
 
-# Swift package state and local verification artifacts
+# Xcode
+xcuserdata/
+xcshareddata/
+DerivedData/
+*.xcuserstate
+
+# Swift Package Manager
 .build/
 .swiftpm/
-tasks/*-build/
-logs/preflight-probe.*/
-logs/preflight-*.log
