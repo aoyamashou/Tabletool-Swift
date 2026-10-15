@@ -70,8 +70,10 @@ final class ContractTests: XCTestCase {
         // The test host's own language decides CSVError.errorDescription, so check each language's table directly.
         let expected = ["en": "Unclosed quoted field", "ja": "引用符が閉じられていません", "zh-Hans": "引号未闭合"]
         for (language, text) in expected {
-            let path = try XCTUnwrap(CSVError.resourceBundle.path(forResource: language, ofType: "lproj"))
-            let bundle = try XCTUnwrap(Bundle(path: path))
+            // Find the language's table the same way the system does, then open its .lproj folder.
+            let table = try XCTUnwrap(CSVError.resourceBundle.path(forResource: "Localizable", ofType: "strings",
+                                                                  inDirectory: nil, forLocalization: language), language)
+            let bundle = try XCTUnwrap(Bundle(path: URL(fileURLWithPath: table).deletingLastPathComponent().path), language)
             XCTAssertEqual(bundle.localizedString(forKey: "Unclosed quoted field", value: nil, table: nil), text)
         }
         XCTAssertNotNil(CSVError.invalidColumnOrder.errorDescription)
