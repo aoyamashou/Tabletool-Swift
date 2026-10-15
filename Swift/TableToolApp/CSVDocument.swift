@@ -29,6 +29,8 @@ final class CSVDocument: NSDocument {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 650),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.contentViewController = controller
+        window.toolbar = controller.makeToolbar()
+        window.toolbarStyle = .expanded
         window.setContentSize(NSSize(width: 1080, height: 650))
         window.contentMinSize = NSSize(width: 720, height: 420)
         window.center()
