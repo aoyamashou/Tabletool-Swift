@@ -23,39 +23,76 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         encoding.addItems(withTitles: CSVEncoding.allCases.map(\.rawValue))
         quote.addItems(withTitles: ["双引号", "单引号", "无引用", "双引号 / 反斜杠"])
         decimal.addItems(withTitles: ["小数点 .", "小数逗号 ,"])
-        delimiter.placeholderString = "分隔符（Tab填\\t）"
-        delimiter.widthAnchor.constraint(equalToConstant: 90).isActive = true
+        delimiter.widthAnchor.constraint(equalToConstant: 64).isActive = true
         delimiter.delegate = self
         for control in [encoding, quote, decimal] { control.target = self; control.action = #selector(formatChanged(_:)) }
         header.target = self; header.action = #selector(formatChanged(_:))
-        let format = NSStackView(views: [NSTextField(labelWithString: "输入编码"), encoding,
-                                       NSTextField(labelWithString: "分隔符"), delimiter, quote, decimal, header])
+        func caption(_ text: String) -> NSTextField {
+            let label = NSTextField(labelWithString: text)
+            label.font = .systemFont(ofSize: 12); label.textColor = .secondaryLabelColor
+            return label
+        }
+        for control in [encoding, quote, decimal] { control.controlSize = .small; control.font = .systemFont(ofSize: 12) }
+        delimiter.controlSize = .small; delimiter.font = .systemFont(ofSize: 12)
+        header.controlSize = .small; header.font = .systemFont(ofSize: 12)
+        delimiter.placeholderString = "Tab填\\t"
+        let format = NSStackView(views: [caption("输入编码"), encoding, caption("分隔符"), delimiter, quote, decimal, header])
         format.orientation = .horizontal
         format.spacing = 8
+        format.setCustomSpacing(16, after: encoding)
+        format.setCustomSpacing(16, after: delimiter)
+        format.setCustomSpacing(16, after: decimal)
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true; scroll.hasHorizontalScroller = true
+        scroll.borderType = .noBorder
         scroll.documentView = tableView
         tableView.dataSource = self; tableView.delegate = self
         tableView.allowsMultipleSelection = true; tableView.allowsColumnSelection = true
         tableView.allowsColumnReordering = true
         tableView.usesAlternatingRowBackgroundColors = true
+        tableView.style = .fullWidth
+        tableView.rowHeight = 24
+        tableView.intercellSpacing = NSSize(width: 8, height: 0)
+        tableView.gridStyleMask = [.solidVerticalGridLineMask]
+        tableView.gridColor = .separatorColor
         tableView.columnAutoresizingStyle = .noColumnAutoresizing
         tableView.registerForDraggedTypes([rowPasteboardType])
         tableView.setDraggingSourceOperationMask(.move, forLocal: true)
         tableView.setDraggingSourceOperationMask(.copy, forLocal: false)
         NotificationCenter.default.addObserver(self, selector: #selector(columnMoved(_:)), name: NSTableView.columnDidMoveNotification, object: tableView)
-        let actions: [(String, Selector)] = [("插入行", #selector(insertRow(_:))), ("删除行", #selector(deleteRows(_:))), ("插入列", #selector(insertColumn(_:))), ("删除列", #selector(deleteColumns(_:))), ("编辑表头", #selector(editHeader(_:)))]
-        let buttons = actions.map { NSButton(title: $0.0, target: self, action: $0.1) }
+        let actions: [(String, String, Selector)] = [("插入行", "plus.rectangle.on.rectangle", #selector(insertRow(_:))), ("删除行", "minus.rectangle", #selector(deleteRows(_:))), ("插入列", "rectangle.split.2x1", #selector(insertColumn(_:))), ("删除列", "rectangle.split.2x1.slash", #selector(deleteColumns(_:))), ("编辑表头", "pencil", #selector(editHeader(_:)))]
+        let buttons = actions.map { title, symbol, action -> NSButton in
+            let button = NSButton(title: title, target: self, action: action)
+            button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+            button.imagePosition = .imageLeading
+            button.bezelStyle = .texturedRounded
+            button.controlSize = .regular
+            button.toolTip = title
+            return button
+        }
         actionButtons = buttons
         let toolbar = NSStackView(views: buttons)
-        toolbar.orientation = .horizontal; toolbar.spacing = 8
-        let stack = NSStackView(views: [format, toolbar, scroll, status])
-        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
+        toolbar.orientation = .horizontal; toolbar.spacing = 6
+        func bar(_ content: NSView, top: CGFloat, bottom: CGFloat) -> NSView {
+            let container = NSView()
+            content.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview(content)
+            NSLayoutConstraint.activate([content.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14), content.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -14), content.topAnchor.constraint(equalTo: container.topAnchor, constant: top), content.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -bottom)])
+            return container
+        }
+        func separator() -> NSBox { let box = NSBox(); box.boxType = .separator; return box }
+        status.font = .systemFont(ofSize: 11); status.textColor = .secondaryLabelColor
+        status.lineBreakMode = .byTruncatingTail
+        let stack = NSStackView(views: [bar(toolbar, top: 10, bottom: 6), bar(format, top: 0, bottom: 10), separator(), scroll, separator(), bar(status, top: 6, bottom: 6)])
+        stack.orientation = .vertical; stack.alignment = .width; stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
-        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12), stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12), stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 12), stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12), scroll.widthAnchor.constraint(equalTo: stack.widthAnchor), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 220)])
-        status.lineBreakMode = .byTruncatingTail
+        NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo: view.leadingAnchor), stack.trailingAnchor.constraint(equalTo: view.trailingAnchor), stack.topAnchor.constraint(equalTo: view.topAnchor), stack.bottomAnchor.constraint(equalTo: view.bottomAnchor), scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 220)])
         reload()
+    }
+    override func viewDidAppear() {
+        super.viewDidAppear()
+        view.window?.makeFirstResponder(tableView)
     }
     func reload() {
         guard isViewLoaded else { return }
@@ -101,6 +138,10 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
         guard let column = tableColumn, let index = tableView.tableColumns.firstIndex(of: column) else { return nil }
         let field = NSTextField(string: document.model.literal(row: row, column: index))
         field.isBordered = false; field.drawsBackground = false
+        field.font = .systemFont(ofSize: 13)
+        field.lineBreakMode = .byTruncatingTail
+        field.usesSingleLineMode = true
+        field.cell?.isScrollable = true
         field.delegate = self
         field.identifier = NSUserInterfaceItemIdentifier("\(row):\(index)")
         return field
