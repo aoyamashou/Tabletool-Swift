@@ -1,10 +1,10 @@
-<img src="Artwork/icon.png" width="96" height="96" alt="Table Tool">
+<img src="Artwork/icon.png" width="96" height="96" alt="Tabletool Swift">
 
-# Table Tool 2026
+# Tabletool Swift
 
-用 Swift / AppKit 重写的 [Table Tool](https://github.com/jakob/TableTool)：一个简单、原生的 macOS CSV 编辑器，面向 Apple Silicon。
+**Tabletool Swift** 是用 Swift / AppKit 重写的 [Table Tool](https://github.com/jakob/TableTool)（原版 1.2.1）：一个简单、原生的 macOS CSV 编辑器，面向 Apple Silicon。
 
-![Table Tool 2026](Artwork/Screenshots/TableTool2026.png)
+![Tabletool Swift](Artwork/Screenshots/TabletoolSwift.png)
 
 ## 特点
 
@@ -19,9 +19,9 @@
 需要 macOS 13+、Xcode，无第三方依赖。
 
 ```bash
-open TableToolSwift.xcodeproj      # 在 Xcode 中运行
+open TabletoolSwift.xcodeproj      # 在 Xcode 中运行
 # 或命令行构建
-xcodebuild -project TableToolSwift.xcodeproj -scheme TableToolSwift -configuration Release build
+xcodebuild -project TabletoolSwift.xcodeproj -scheme TabletoolSwift -configuration Release build
 ```
 
 ## 测试

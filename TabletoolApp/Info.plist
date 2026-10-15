@@ -11,13 +11,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>TableTool Swift</string>
+	<string>Tabletool Swift</string>
+	<key>CFBundleDisplayName</key>
+	<string>Tabletool Swift</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
+	<string>2.0.1</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSPrincipalClass</key>
@@ -44,7 +46,7 @@
 		</dict>
 	</array>
 	<key>NSHumanReadableCopyright</key>
-	<string>Original Table Tool © 2015 Egger Apps; Swift rewrite contributors. MIT License.</string>
+	<string>Tabletool Swift is a Swift rewrite of Table Tool © 2015 Egger Apps. MIT License.</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 </dict>

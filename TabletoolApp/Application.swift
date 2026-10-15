@@ -1,7 +1,7 @@
 import AppKit
 
 @main
-struct TableToolApplication {
+struct TabletoolApplication {
     @MainActor
     static func main() {
         let application = NSApplication.shared

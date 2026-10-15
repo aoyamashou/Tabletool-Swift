@@ -10,10 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let child = NSMenu(title: title); item.submenu = child; menu.addItem(item)
             return child
         }
-        let app = submenu("TableTool Swift")
-        app.addItem(withTitle: "关于 TableTool Swift", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let app = submenu("Tabletool Swift")
+        app.addItem(withTitle: "关于 Tabletool Swift", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: "退出 TableTool Swift", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        app.addItem(withTitle: "退出 Tabletool Swift", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let file = submenu("文件")
         file.addItem(withTitle: "新建", action: #selector(NSDocumentController.newDocument(_:)), keyEquivalent: "n")
         file.addItem(withTitle: "打开…", action: #selector(NSDocumentController.openDocument(_:)), keyEquivalent: "o")

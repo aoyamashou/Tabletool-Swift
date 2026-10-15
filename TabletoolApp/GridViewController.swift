@@ -13,7 +13,7 @@ final class GridViewController: NSViewController, @preconcurrency NSTableViewDat
     private let status = NSTextField(labelWithString: "")
     private static let separators: [Character] = [",", ";", "\t", "|"]
     var detectionNotice = ""
-    private let rowPasteboardType = NSPasteboard.PasteboardType("cc.kneo.TableToolSwift.rows")
+    private let rowPasteboardType = NSPasteboard.PasteboardType("cc.kneo.TabletoolSwift.rows")
     private let dragIdentity = UUID().uuidString
     private var isReloading = false
     init(document: CSVDocument) { self.document = document; super.init(nibName: nil, bundle: nil) }
@@ -305,7 +305,7 @@ private func glyph(vertical: Bool, marked: Int, color: NSColor) -> NSImage {
 
 extension GridViewController {
     func makeToolbar() -> NSToolbar {
-        let toolbar = NSToolbar(identifier: "TableToolSwift.main")
+        let toolbar = NSToolbar(identifier: "TabletoolSwift.main")
         toolbar.delegate = self
         toolbar.displayMode = .iconAndLabel
         toolbar.allowsUserCustomization = false
