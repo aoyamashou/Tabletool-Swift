@@ -7,13 +7,106 @@ public struct CSVDetector: CSVDetecting {
     public init(reader: any CSVReading = CSVReader()) { self.reader = reader }
 
     /// Inputs up to this size keep the exhaustive behaviour: every candidate reads the whole file.
-    static let sampleThreshold = 256 * 1024
+    static let sampleThreshold = 16 * 1024
     /// Growing prefix sizes used to score large inputs; scoring only looks at the first five records.
     private static let sampleSizes = [4 * 1024, 16 * 1024, 64 * 1024, 256 * 1024, 1024 * 1024]
 
-    public func detect(_ data: Data, encodings: [CSVEncoding]) throws -> CSVDetectionResult {
-        data.count <= Self.sampleThreshold ? try detectExhaustively(data, encodings: encodings)
-                                           : try detectBySampling(data, encodings: encodings)
+    public func detect(_ data: Data, encodings requested: [CSVEncoding]) throws -> CSVDetectionResult {
+        let encodings = Self.orderedByPlausibility(requested, data: data)
+        return data.count <= Self.sampleThreshold ? try detectExhaustively(data, encodings: encodings)
+                                                  : try detectBySampling(data, encodings: encodings)
+    }
+
+    // MARK: Encoding plausibility
+    //
+    // Single-byte legacy encodings (MacRoman, Windows-1252, ...) accept every byte sequence, and CJK
+    // double-byte encodings accept most others, so "decodes without error" says little. Candidates are
+    // therefore tried in order of how much the decoded text looks like real text. Ties keep the caller's
+    // order, so ASCII-only input and the caller's preference are unaffected.
+
+    static func orderedByPlausibility(_ encodings: [CSVEncoding], data: Data) -> [CSVEncoding] {
+        // Pure printable ASCII reads identically everywhere. ESC (ISO-2022-JP) and NUL (UTF-16/32) also need judging.
+        guard data.contains(where: { $0 >= 0x80 || ($0 < 0x20 && $0 != 0x09 && $0 != 0x0a && $0 != 0x0d) }) else { return encodings }
+        var unique: [CSVEncoding] = []
+        for encoding in encodings where !unique.contains(encoding) { unique.append(encoding) }
+        let scored: [(encoding: CSVEncoding, score: Double)] = unique.map { encoding in
+            let sample = Self.lineAlignedPrefix(data, limit: 64 * 1024, encoding: encoding)
+                ?? (data.count <= 64 * 1024 ? data : nil)
+            guard let sample, let (text, _) = try? CSVCodec.decode(sample, encoding: encoding) else {
+                return (encoding, -.infinity) // cannot decode: stays last, fails later with a precise error
+            }
+            return (encoding, plausibility(of: text, encoding: encoding))
+        }
+        // Stable: equal scores keep the caller's order.
+        return scored.enumerated().sorted {
+            $0.element.score == $1.element.score ? $0.offset < $1.offset : $0.element.score > $1.element.score
+        }.map(\.element.encoding)
+    }
+
+    /// Higher is more text-like. Only differences between encodings of the same bytes matter.
+    static func plausibility(of text: String, encoding: CSVEncoding) -> Double {
+        let japanese: Bool
+        switch encoding {
+        case .shiftJIS, .japaneseEUC, .iso2022JP, .utf8, .utf16, .utf16BigEndian, .utf16LittleEndian,
+             .utf32, .utf32BigEndian, .utf32LittleEndian: japanese = true
+        default: japanese = false
+        }
+        var total = 0.0
+        var sawNonASCII = false
+        var previousWasLowercase = false
+        var previousWasAccented = false
+        var previousWasASCIILetter = false
+        var previousWasCyrillicOrGreek = false
+        for scalar in text.unicodeScalars {
+            let value = scalar.value
+            var isLowercase = false
+            var isAccented = false
+            var isASCIILetter = false
+            var isCyrillicOrGreek = false
+            defer {
+                previousWasLowercase = isLowercase; previousWasAccented = isAccented
+                previousWasASCIILetter = isASCIILetter; previousWasCyrillicOrGreek = isCyrillicOrGreek
+            }
+            if value < 0x80 {
+                if value < 0x20 && value != 0x09 && value != 0x0a && value != 0x0d { total -= 5 }
+                else if value == 0x7f { total -= 5 }
+                else {
+                    isLowercase = (0x61...0x7a).contains(value)
+                    isASCIILetter = isLowercase || (0x41...0x5a).contains(value)
+                    // Latin letters glued to Cyrillic/Greek ones: Latin-1 bytes read as Windows-1251/1253.
+                    if isASCIILetter && previousWasCyrillicOrGreek { total -= 2 }
+                }
+                continue
+            }
+            sawNonASCII = true
+            switch value {
+            case 0xfffd, 0x80...0x9f, 0xe000...0xf8ff: total -= 5 // replacement, C1 controls, private use
+            case 0xff61...0xff9f: total -= 3 // half-width katakana: typical garbage from GBK/EUC bytes read as Shift-JIS
+            case 0x3040...0x30ff: if japanese { total += 1 }
+            default:
+                switch scalar.properties.generalCategory {
+                case .mathSymbol, .modifierSymbol, .otherSymbol, .modifierLetter, .nonspacingMark,
+                     .unassigned, .surrogate, .privateUse, .control, .format:
+                    total -= 2
+                case .lowercaseLetter: isLowercase = true
+                case .uppercaseLetter:
+                    // "cafÉ", "MÜller": an accented capital inside a word is the MacRoman-vs-Windows-1252 tell.
+                    if previousWasLowercase && value < 0x250 { total -= 2 }
+                default: break
+                }
+                if (0x370...0x52f).contains(value) {
+                    isCyrillicOrGreek = true
+                    if previousWasASCIILetter { total -= 2 }
+                }
+                // Western text sprinkles single accents; CJK bytes read as Latin give runs of accented letters.
+                if (0xa0...0x24f).contains(value) {
+                    isAccented = true
+                    if previousWasAccented { total -= 1.5 }
+                }
+            }
+        }
+        if encoding == .utf8 && sawNonASCII { total += 10 } // random bytes are almost never valid UTF-8
+        return total
     }
 
     private func detectExhaustively(_ data: Data, encodings: [CSVEncoding]) throws -> CSVDetectionResult {

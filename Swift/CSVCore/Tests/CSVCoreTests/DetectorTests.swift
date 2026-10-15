@@ -187,4 +187,51 @@ final class DetectorTests: XCTestCase {
         XCTAssertEqual(CSVDetector.lineAlignedPrefix(utf16be, limit: utf16be.count, encoding: .utf16BigEndian)?.count, 16)
         XCTAssertEqual(CSVDetector.lineAlignedPrefix(Data("a\r\rb".utf8), limit: 5, encoding: .utf8)?.count, 3)
     }
+
+    // MARK: Legacy CJK / Western encodings are told apart by how much the decoded text looks like text.
+
+    private func detectDecoded(_ text: String, encoded: CSVEncoding) throws -> (CSVEncoding, String) {
+        let data = try CSVCodec.encode(text, encoding: encoded, bom: false)
+        let result = try CSVDetector().detect(data, encodings: CSVEncoding.allCases)
+        let best = try XCTUnwrap(result.candidates.first).configuration
+        let read = try CSVReader().read(data, configuration: best)
+        return (best.encoding, read.table.rows.map { $0.map(\.literal).joined(separator: ",") }.joined(separator: "\n") + "\n")
+    }
+
+    private let chinese = "编号,姓名,城市,备注\n1,张伟,北京,你好世界\n2,王芳,上海,表格工具\n3,李娜,广州,中文测试\n"
+    private let japanese = "番号,名前,都市,備考\n1,山田太郎,東京,こんにちは世界\n2,佐藤花子,大阪,表計算ツール\n3,鈴木一郎,京都,日本語のテスト\n"
+    private let latinText = "id,name,city,note\n1,Müller,München,Größe\n2,Zoë,Zürich,Straße\n3,Hervé,Bordeaux,café résumé\n"
+
+    func testShiftJISIsNotMistakenForMacRoman() throws {
+        let (encoding, text) = try detectDecoded(japanese, encoded: .shiftJIS)
+        XCTAssertEqual(encoding, .shiftJIS); XCTAssertEqual(text, japanese)
+    }
+    func testJapaneseEUCIsNotMistakenForChinese() throws {
+        let (encoding, text) = try detectDecoded(japanese, encoded: .japaneseEUC)
+        XCTAssertEqual(encoding, .japaneseEUC); XCTAssertEqual(text, japanese)
+    }
+    func testISO2022JPIsDetected() throws {
+        let (encoding, text) = try detectDecoded(japanese, encoded: .iso2022JP)
+        XCTAssertEqual(encoding, .iso2022JP); XCTAssertEqual(text, japanese)
+    }
+    func testGBKAndGB18030TextReadAsChinese() throws {
+        for encoded in [CSVEncoding.gbk, .gb18030] {
+            let (encoding, text) = try detectDecoded(chinese, encoded: encoded)
+            XCTAssertTrue([.gbk, .gb18030].contains(encoding), "\(encoded) detected as \(encoding)")
+            XCTAssertEqual(text, chinese)
+        }
+    }
+    func testWindows1252TextIsNotMistakenForMacRoman() throws {
+        let (encoding, text) = try detectDecoded(latinText, encoded: .windows1252)
+        XCTAssertEqual(encoding, .windows1252); XCTAssertEqual(text, latinText)
+    }
+    func testMacRomanTextStaysMacRoman() throws {
+        let (encoding, text) = try detectDecoded(latinText, encoded: .macRoman)
+        XCTAssertEqual(encoding, .macRoman); XCTAssertEqual(text, latinText)
+    }
+    func testUTF8StillWinsForNonASCIIText() throws {
+        for sample in [chinese, japanese, latinText] {
+            XCTAssertEqual(try detectDecoded(sample, encoded: .utf8).0, .utf8)
+        }
+    }
 }
